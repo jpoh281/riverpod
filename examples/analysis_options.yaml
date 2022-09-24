@@ -13,8 +13,8 @@ linter:
     # Not necessary for examples
     public_member_api_docs: false
 
-    # Not necessary for examples
-    use_key_in_widget_constructors: false
+    use_key_in_widget_constructors: true
+    prefer_const_constructors: true
 
     # Too verbose for apps and bring very little value
     diagnostic_describe_all_properties: false
