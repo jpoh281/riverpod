@@ -77,14 +77,12 @@ import 'package:riverpod/riverpod.dart';
 class ProviderScope extends StatefulWidget {
   /// {@macro riverpod.providerscope}
   const ProviderScope({
-    Key? key,
+    super.key,
     this.overrides = const [],
     this.observers,
-    this.cacheTime,
-    this.disposeDelay,
     this.parent,
     required this.child,
-  }) : super(key: key);
+  });
 
   /// Read the current [ProviderContainer] for a [BuildContext].
   static ProviderContainer containerOf(
@@ -108,26 +106,6 @@ class ProviderScope extends StatefulWidget {
 
     return scope.container;
   }
-
-  /// The minimum amount of time before an `autoDispose` provider can be
-  /// disposed if not listened.
-  ///
-  /// If the provider rebuilds (such as when using `ref.watch` or `ref.refresh`),
-  /// the timer will be refreshed.
-  ///
-  /// If null, use the nearest ancestor [ProviderScope]'s [cacheTime].
-  /// If no ancestor is found, fallbacks to 0.
-  final int? cacheTime;
-
-  /// The amount of time before a provider is disposed after its last listener
-  /// is removed.
-  ///
-  /// If a new listener is added within that duration, the provider will not be
-  /// disposed.
-  ///
-  /// If null, use the nearest ancestor [ProviderContainer]'s [disposeDelay].
-  /// If no ancestor is found, fallbacks to 0.
-  final int? disposeDelay;
 
   /// Explicitly override the parent [ProviderContainer] that this [ProviderScope]
   /// would be a descendant of.
@@ -187,17 +165,18 @@ class ProviderScopeState extends State<ProviderScope> {
     super.initState();
 
     final parent = _getParent();
-    assert(() {
-      _debugParentOwner = parent;
-      return true;
-    }(), '');
+    assert(
+      () {
+        _debugParentOwner = parent;
+        return true;
+      }(),
+      '',
+    );
 
     container = ProviderContainer(
       parent: parent,
       overrides: widget.overrides,
       observers: widget.observers,
-      cacheTime: widget.cacheTime,
-      disposeDelay: widget.disposeDelay,
       // TODO How to report to FlutterError?
       // onError: (dynamic error, stack) {
       //   FlutterError.reportError(
@@ -243,20 +222,23 @@ class ProviderScopeState extends State<ProviderScope> {
 
   @override
   Widget build(BuildContext context) {
-    assert(() {
-      if (widget.parent != null) {
-        // didUpdateWidget already takes care of widget.parent change
-        return true;
-      }
-      final parent = _getParent();
+    assert(
+      () {
+        if (widget.parent != null) {
+          // didUpdateWidget already takes care of widget.parent change
+          return true;
+        }
+        final parent = _getParent();
 
-      if (parent != _debugParentOwner) {
-        throw UnsupportedError(
-          'ProviderScope was rebuilt with a different ProviderScope ancestor',
-        );
-      }
-      return true;
-    }(), '');
+        if (parent != _debugParentOwner) {
+          throw UnsupportedError(
+            'ProviderScope was rebuilt with a different ProviderScope ancestor',
+          );
+        }
+        return true;
+      }(),
+      '',
+    );
     if (_dirty) {
       _dirty = false;
       container.updateOverrides(widget.overrides);
@@ -284,10 +266,10 @@ class ProviderScopeState extends State<ProviderScope> {
 class UncontrolledProviderScope extends InheritedWidget {
   /// {@macro riverpod.UncontrolledProviderScope}
   const UncontrolledProviderScope({
-    Key? key,
+    super.key,
     required this.container,
-    required Widget child,
-  }) : super(key: key, child: child);
+    required super.child,
+  });
 
   /// The [ProviderContainer] exposed to the widget tree.
   final ProviderContainer container;
@@ -306,8 +288,7 @@ class UncontrolledProviderScope extends InheritedWidget {
 
 @sealed
 class _UncontrolledProviderScopeElement extends InheritedElement {
-  _UncontrolledProviderScopeElement(UncontrolledProviderScope widget)
-      : super(widget);
+  _UncontrolledProviderScopeElement(UncontrolledProviderScope super.widget);
 
   void Function()? _task;
   bool _mounted = true;
@@ -332,10 +313,13 @@ class _UncontrolledProviderScopeElement extends InheritedElement {
   @override
   void reassemble() {
     super.reassemble();
-    assert(() {
-      _containerOf(widget).debugReassemble();
-      return true;
-    }(), '');
+    assert(
+      () {
+        _containerOf(widget).debugReassemble();
+        return true;
+      }(),
+      '',
+    );
   }
 
   @override

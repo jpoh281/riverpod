@@ -16,8 +16,6 @@ class ValueProvider<State> extends ProviderBase<State>
           name: null,
           from: null,
           argument: null,
-          cacheTime: null,
-          disposeDelay: null,
           debugGetCreateSourceHash: null,
         );
 
@@ -37,9 +35,7 @@ class ValueProvider<State> extends ProviderBase<State>
 @internal
 class ValueProviderElement<State> extends ProviderElementBase<State> {
   /// The [ProviderElementBase] of a [ValueProvider]
-  ValueProviderElement(
-    ValueProvider<State> provider,
-  ) : super(provider);
+  ValueProviderElement(ValueProvider<State> super.provider);
 
   /// A custom listener called when `overrideWithValue` changes
   /// with a different value.

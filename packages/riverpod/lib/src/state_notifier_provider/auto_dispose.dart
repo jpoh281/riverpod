@@ -16,8 +16,6 @@ class AutoDisposeStateNotifierProvider<NotifierT extends StateNotifier<T>, T>
     super.from,
     super.argument,
     super.dependencies,
-    super.cacheTime,
-    super.disposeDelay,
     super.debugGetCreateSourceHash,
   });
 
@@ -25,7 +23,8 @@ class AutoDisposeStateNotifierProvider<NotifierT extends StateNotifier<T>, T>
   static const family = AutoDisposeStateNotifierProviderFamily.new;
 
   final NotifierT Function(
-      AutoDisposeStateNotifierProviderRef<NotifierT, T> ref) _createFn;
+    AutoDisposeStateNotifierProviderRef<NotifierT, T> ref,
+  ) _createFn;
 
   @override
   NotifierT _create(AutoDisposeStateNotifierProviderElement<NotifierT, T> ref) {
@@ -62,7 +61,5 @@ class AutoDisposeStateNotifierProviderFamily<NotifierT extends StateNotifier<T>,
     super.create, {
     super.name,
     super.dependencies,
-    super.cacheTime,
-    super.disposeDelay,
   }) : super(providerFactory: AutoDisposeStateNotifierProvider.new);
 }

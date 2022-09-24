@@ -84,7 +84,7 @@ class StateNotifierProvider<NotifierT extends StateNotifier<T>, T>
     super.argument,
     super.dependencies,
     super.debugGetCreateSourceHash,
-  }) : super(cacheTime: null, disposeDelay: null);
+  });
 
   /// {@macro riverpod.autoDispose}
   static const autoDispose = AutoDisposeStateNotifierProviderBuilder();
@@ -114,8 +114,8 @@ class StateNotifierProviderElement<NotifierT extends StateNotifier<T>, T>
     extends ProviderElementBase<T>
     implements StateNotifierProviderRef<NotifierT, T> {
   StateNotifierProviderElement._(
-    _StateNotifierProviderBase<NotifierT, T> provider,
-  ) : super(provider);
+    _StateNotifierProviderBase<NotifierT, T> super.provider,
+  );
 
   @override
   NotifierT get notifier => _notifierNotifier.value;

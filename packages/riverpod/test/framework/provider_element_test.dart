@@ -4,7 +4,6 @@ import 'package:mockito/mockito.dart';
 import 'package:riverpod/src/internals.dart';
 import 'package:test/test.dart';
 
-import '../third_party/fake_async.dart';
 import '../utils.dart';
 
 void main() {
@@ -177,554 +176,6 @@ void main() {
     });
   });
 
-  group('disposeDelay', () {
-    test('supports disposing the container before the timer completes',
-        () async {
-      await fakeAsync((async) async {
-        final provider = Provider.autoDispose((ref) => 42);
-        final container = createContainer(
-          disposeDelay: 5 * 1000,
-        );
-
-        final sub = container.listen(provider, (prev, next) {});
-        sub.close();
-
-        container.dispose();
-
-        expect(async.pendingTimers, isEmpty);
-      });
-    });
-
-    test(
-        'keeps the provider alive for duration after the last listener is removed',
-        () async {
-      return fakeAsync((async) async {
-        final listener = OnDisposeMock();
-        final provider = Provider.autoDispose(
-          (ref) {
-            ref.onDispose(listener);
-          },
-        );
-        final container = createContainer(
-          disposeDelay: 5 * 1000,
-        );
-
-        final sub = container.listen<void>(provider, (prev, next) {});
-        verifyZeroInteractions(listener);
-
-        sub.close();
-        await container.pump();
-
-        async.elapse(const Duration(seconds: 1));
-        verifyZeroInteractions(listener);
-
-        async.elapse(const Duration(seconds: 4));
-        await container.pump();
-
-        verifyOnly(listener, listener());
-      });
-    });
-
-    test('if a listener is added during the duration, aborts the disposal',
-        () async {
-      return fakeAsync((async) async {
-        final listener = OnDisposeMock();
-        final provider = Provider.autoDispose(
-          (ref) {
-            ref.onDispose(listener);
-          },
-        );
-        final container = createContainer(
-          disposeDelay: 5 * 1000,
-        );
-
-        final sub = container.listen<void>(provider, (prev, next) {});
-        verifyZeroInteractions(listener);
-
-        sub.close();
-        async.elapse(const Duration(seconds: 1));
-        await container.pump();
-
-        verifyZeroInteractions(listener);
-
-        final sub2 = container.listen<void>(provider, (prev, next) {});
-
-        async.elapse(const Duration(seconds: 4));
-        await container.pump();
-
-        verifyZeroInteractions(listener);
-
-        sub2.close();
-        await container.pump();
-        verifyZeroInteractions(listener);
-
-        async.elapse(const Duration(seconds: 5));
-        await container.pump();
-
-        verifyOnly(listener, listener());
-      });
-    });
-
-    test(
-        'the timer properly continues even if the provider is refreshed in the middle of the duration',
-        () async {
-      return fakeAsync((async) async {
-        final listener = OnDisposeMock();
-        final provider = Provider.autoDispose(
-          (ref) {
-            ref.onDispose(listener);
-          },
-        );
-        final container = createContainer(
-          disposeDelay: 5 * 1000,
-        );
-
-        final sub = container.listen<void>(provider, (prev, next) {});
-        verifyZeroInteractions(listener);
-
-        sub.close();
-        async.elapse(const Duration(seconds: 2));
-        await container.pump();
-
-        verifyZeroInteractions(listener);
-
-        container.refresh(provider);
-
-        verifyOnly(listener, listener());
-
-        async.elapse(const Duration(seconds: 1));
-        await container.pump();
-        verifyNoMoreInteractions(listener);
-
-        async.elapse(const Duration(seconds: 2));
-
-        verifyOnly(listener, listener());
-      });
-    });
-
-    test(
-        'if the timer completes yet the provider is still kept alive due to something else, adding a listener properly resume the logic',
-        () async {
-      return fakeAsync((async) async {
-        final listener = OnDisposeMock();
-        late KeepAliveLink link;
-        final provider = Provider.autoDispose(
-          (ref) {
-            link = ref.keepAlive();
-            ref.onDispose(listener);
-          },
-        );
-        final container = createContainer(
-          disposeDelay: 5 * 1000,
-        );
-
-        final sub = container.listen<void>(provider, (prev, next) {});
-        verifyZeroInteractions(listener);
-
-        sub.close();
-        async.elapse(const Duration(seconds: 5));
-        await container.pump();
-
-        verifyZeroInteractions(listener);
-
-        final sub2 = container.listen<void>(provider, (prev, next) {});
-        link.close();
-
-        async.elapse(Duration.zero);
-        await container.pump();
-
-        verifyZeroInteractions(listener);
-
-        sub2.close();
-        async.elapse(Duration.zero);
-        await container.pump();
-
-        verifyZeroInteractions(listener);
-
-        async.elapse(const Duration(seconds: 5));
-        await container.pump();
-
-        verifyOnly(listener, listener());
-      });
-    });
-  });
-
-  group('cacheTime', () {
-    test('supports disposing the container before the timer completes',
-        () async {
-      await fakeAsync((async) async {
-        final provider = Provider.autoDispose((ref) => 42);
-        final container = createContainer(
-          cacheTime: 5 * 1000,
-        );
-
-        container.read(provider);
-
-        container.dispose();
-
-        expect(async.pendingTimers, isEmpty);
-      });
-    });
-
-    group('reverts copyWithPrevious when cacheTime expires', () {
-      test(
-          'resets AsyncValue.isRefreshing after cacheTime expires, without notifying listeners',
-          () {
-        fakeAsync((async) {
-          late StreamProviderRef<int> ref;
-          late StreamController<int> controller;
-          final provider = StreamProvider.autoDispose<int>(
-            (r) {
-              ref = r;
-              controller = StreamController<int>(sync: true);
-              ref.onDispose(controller.close);
-              return controller.stream;
-            },
-          );
-          final container = createContainer(
-            cacheTime: 5 * 1000,
-          );
-          final listener = Listener<AsyncValue<int>>();
-
-          final sub = container.listen<AsyncValue<int>>(provider, listener);
-
-          controller.add(42);
-
-          verifyOnly(
-            listener,
-            listener(const AsyncLoading<int>(), const AsyncData(42)),
-          );
-
-          container.refresh(provider);
-
-          expect(
-            sub.read(),
-            const AsyncLoading<int>().copyWithPrevious(const AsyncData(42)),
-          );
-          verifyOnly(
-            listener,
-            listener(
-              const AsyncData(42),
-              const AsyncLoading<int>().copyWithPrevious(const AsyncData(42)),
-            ),
-          );
-
-          async.elapse(const Duration(seconds: 5));
-
-          expect(
-            sub.read(),
-            const AsyncLoading<int>(),
-          );
-          expect(
-            container.read(provider),
-            const AsyncLoading<int>(),
-          );
-          verifyNoMoreInteractions(listener);
-        });
-      });
-
-      test('refresh timer when new values are emitted', () {
-        fakeAsync((async) {
-          late StreamController<int> controller;
-          final provider = StreamProvider.autoDispose<int>(
-            (ref) {
-              controller = StreamController<int>(sync: true);
-              ref.onDispose(controller.close);
-              return controller.stream;
-            },
-          );
-          final container = createContainer(
-            cacheTime: 5 * 1000,
-          );
-
-          container.listen(provider, (prev, next) {}); // initialize data
-
-          controller.add(42);
-          container.refresh(provider);
-
-          expect(
-            container.read(provider),
-            const AsyncLoading<int>().copyWithPrevious(const AsyncData(42)),
-          );
-
-          async.elapse(const Duration(seconds: 2));
-
-          expect(
-            container.read(provider),
-            const AsyncLoading<int>().copyWithPrevious(const AsyncData(42)),
-          );
-
-          controller.add(21);
-          container.refresh(provider);
-
-          async.elapse(const Duration(seconds: 3));
-
-          expect(
-            container.read(provider),
-            const AsyncLoading<int>().copyWithPrevious(const AsyncData(21)),
-          );
-
-          async.elapse(const Duration(seconds: 3));
-
-          expect(
-            container.read(provider),
-            const AsyncLoading<int>(),
-          );
-        });
-      });
-
-      test('refresh timer when AsyncErrors are emitted', () {
-        fakeAsync((async) {
-          late StreamController<int> controller;
-          final provider = StreamProvider.autoDispose<int>(
-            (ref) {
-              controller = StreamController<int>(sync: true);
-              ref.onDispose(controller.close);
-              return controller.stream;
-            },
-          );
-          final container = createContainer(
-            cacheTime: 5 * 1000,
-          );
-
-          container.listen(provider, (prev, next) {}); // initialize data
-
-          controller.addError(42, StackTrace.empty);
-          container.refresh(provider);
-
-          expect(
-            container.read(provider),
-            const AsyncLoading<int>().copyWithPrevious(
-              const AsyncError(42, StackTrace.empty),
-            ),
-          );
-
-          async.elapse(const Duration(seconds: 2));
-
-          expect(
-            container.read(provider),
-            const AsyncLoading<int>().copyWithPrevious(
-              const AsyncError(42, StackTrace.empty),
-            ),
-          );
-
-          controller.addError(42, StackTrace.empty);
-          container.refresh(provider);
-
-          controller.addError(21, StackTrace.empty);
-          container.refresh(provider);
-
-          async.elapse(const Duration(seconds: 3));
-
-          expect(
-            container.read(provider),
-            const AsyncLoading<int>().copyWithPrevious(
-              const AsyncError(21, StackTrace.empty),
-            ),
-          );
-
-          async.elapse(const Duration(seconds: 3));
-
-          expect(
-            container.read(provider),
-            const AsyncLoading<int>(),
-          );
-        });
-      });
-    });
-
-    test('keeps autoDispose provider alive for at least duration', () async {
-      fakeAsync((async) {
-        final container = createContainer();
-        final listener = OnDisposeMock();
-        final provider = Provider.autoDispose(
-          (ref) => ref.onDispose(listener),
-          cacheTime: 2 * 1000,
-        );
-
-        container.read(provider);
-        verifyZeroInteractions(listener);
-
-        async.elapse(const Duration(seconds: 1));
-
-        verifyZeroInteractions(listener);
-
-        async.elapse(const Duration(seconds: 1));
-
-        verifyOnly(listener, listener());
-      });
-    });
-
-    test('if provider rebuilds, reset the timer', () async {
-      fakeAsync((async) {
-        final container = createContainer();
-        final listener = OnDisposeMock();
-        final provider = Provider.autoDispose(
-          (ref) => ref.onDispose(listener),
-          cacheTime: 5 * 1000,
-        );
-
-        container.read(provider);
-        verifyZeroInteractions(listener);
-
-        async.elapse(const Duration(seconds: 3));
-
-        verifyZeroInteractions(listener);
-
-        container.refresh(provider);
-        verifyOnly(listener, listener());
-
-        async.elapse(const Duration(seconds: 3));
-
-        verifyNoMoreInteractions(listener);
-
-        async.elapse(const Duration(seconds: 2));
-
-        verifyOnly(listener, listener());
-      });
-    });
-
-    test(
-        'on error and the timer completes yet the provider is still listened, properly clears resources',
-        () async {
-      return fakeAsync((async) async {
-        final container = createContainer();
-        final listener = OnDisposeMock();
-        final provider = Provider.autoDispose(
-          (ref) {
-            ref.onDispose(listener);
-            throw StateError('message');
-          },
-          cacheTime: 5 * 1000,
-        );
-
-        final sub = container.listen(
-          provider,
-          (prev, next) {},
-          onError: (err, stack) {},
-        );
-        verifyZeroInteractions(listener);
-
-        async.elapse(const Duration(seconds: 5));
-
-        verifyZeroInteractions(listener);
-
-        expect(() => container.refresh(provider), throwsStateError);
-        verifyOnly(listener, listener());
-
-        sub.close();
-        final f = container.pump();
-        async.elapse(const Duration(seconds: 1));
-        await f;
-
-        verifyNoMoreInteractions(listener);
-
-        async.elapse(const Duration(seconds: 5));
-
-        verifyOnly(listener, listener());
-      });
-    });
-
-    test(
-        'on data and the timer completes yet the provider is still listened, properly clears resources',
-        () async {
-      return fakeAsync((async) async {
-        final container = createContainer();
-        final listener = OnDisposeMock();
-        final provider = StateProvider.autoDispose(
-          (ref) {
-            ref.onDispose(listener);
-            return 0;
-          },
-          cacheTime: 5 * 1000,
-        );
-
-        final sub = container.listen(
-          provider,
-          (prev, next) {},
-          onError: (err, stack) {},
-        );
-        verifyZeroInteractions(listener);
-
-        async.elapse(const Duration(seconds: 5));
-
-        verifyZeroInteractions(listener);
-
-        container.read(provider.notifier).state++;
-        verifyNoMoreInteractions(listener);
-
-        sub.close();
-        final f = container.pump();
-        async.elapse(const Duration(seconds: 1));
-        await f;
-
-        verifyNoMoreInteractions(listener);
-
-        async.elapse(const Duration(seconds: 5));
-
-        verifyOnly(listener, listener());
-      });
-    });
-
-    test('if provider rebuilds with an error, reset the timer', () async {
-      fakeAsync((async) {
-        final container = createContainer();
-        final listener = OnDisposeMock();
-        final provider = Provider.autoDispose(
-          (ref) {
-            ref.onDispose(listener);
-            throw StateError('message');
-          },
-          cacheTime: 5 * 1000,
-        );
-
-        expect(() => container.read(provider), throwsStateError);
-        verifyZeroInteractions(listener);
-
-        async.elapse(const Duration(seconds: 3));
-
-        verifyZeroInteractions(listener);
-
-        expect(() => container.refresh(provider), throwsStateError);
-        verifyOnly(listener, listener());
-
-        async.elapse(const Duration(seconds: 3));
-
-        verifyNoMoreInteractions(listener);
-
-        async.elapse(const Duration(seconds: 2));
-
-        verifyOnly(listener, listener());
-      });
-    });
-
-    test('If provider.cacheTime is null, use container.cacheTime', () async {
-      fakeAsync((async) {
-        final listener = OnDisposeMock();
-        final provider = Provider.autoDispose((ref) => ref.onDispose(listener));
-        final root = createContainer(
-          cacheTime: 10 * 1000,
-        );
-        final container = createContainer(
-          parent: root,
-          cacheTime: 5 * 1000,
-          overrides: [provider],
-        );
-
-        container.read(provider);
-        verifyZeroInteractions(listener);
-
-        async.elapse(const Duration(seconds: 2));
-
-        verifyZeroInteractions(listener);
-
-        async.elapse(const Duration(seconds: 3));
-
-        verifyOnly(listener, listener());
-      });
-    });
-  });
-
   group('ref.onRemoveListener', () {
     test('is not called on read', () {
       final container = createContainer();
@@ -773,14 +224,20 @@ void main() {
       final container = createContainer();
       final listener = OnRemoveListener();
       final listener2 = OnRemoveListener();
-      final dep = Provider((ref) {
-        ref.onRemoveListener(listener);
-        ref.onRemoveListener(listener2);
-      }, name: 'dep');
+      final dep = Provider(
+        name: 'dep',
+        (ref) {
+          ref.onRemoveListener(listener);
+          ref.onRemoveListener(listener2);
+        },
+      );
       late Ref ref;
-      final provider = Provider((r) {
-        ref = r;
-      }, name: 'provider');
+      final provider = Provider(
+        name: 'provider',
+        (r) {
+          ref = r;
+        },
+      );
 
       // initialize ref
       container.read(provider);
@@ -812,14 +269,18 @@ void main() {
       final container = createContainer();
       final listener = OnRemoveListener();
       final listener2 = OnRemoveListener();
-      final dep = Provider((ref) {
-        ref.onRemoveListener(listener);
-        ref.onRemoveListener(listener2);
-      }, name: 'dep');
+      final dep = Provider(
+        name: 'dep',
+        (ref) {
+          ref.onRemoveListener(listener);
+          ref.onRemoveListener(listener2);
+        },
+      );
       late Ref ref;
-      final provider = Provider((r) {
-        ref = r;
-      }, name: 'provider');
+      final provider = Provider(
+        name: 'provider',
+        (r) => ref = r,
+      );
 
       // initialize refs
       container.read(provider);
@@ -925,14 +386,18 @@ void main() {
       final container = createContainer();
       final listener = OnAddListener();
       final listener2 = OnAddListener();
-      final dep = Provider((ref) {
-        ref.onAddListener(listener);
-        ref.onAddListener(listener2);
-      }, name: 'dep');
+      final dep = Provider(
+        name: 'dep',
+        (ref) {
+          ref.onAddListener(listener);
+          ref.onAddListener(listener2);
+        },
+      );
       late Ref ref;
-      final provider = Provider((r) {
-        ref = r;
-      }, name: 'provider');
+      final provider = Provider(
+        name: 'provider',
+        (r) => ref = r,
+      );
 
       // initialize ref
       container.read(provider);
@@ -954,18 +419,23 @@ void main() {
       final container = createContainer();
       final listener = OnAddListener();
       final listener2 = OnAddListener();
-      final dep = Provider((ref) {
-        ref.onAddListener(listener);
-        ref.onAddListener(listener2);
-      }, name: 'dep');
+      final dep = Provider(
+        name: 'dep',
+        (ref) {
+          ref.onAddListener(listener);
+          ref.onAddListener(listener2);
+        },
+      );
       late Ref ref;
-      final provider = Provider((r) {
-        ref = r;
-      }, name: 'provider');
+      final provider = Provider(
+        name: 'provider',
+        (r) => ref = r,
+      );
       late Ref ref2;
-      final provider2 = Provider((r) {
-        ref2 = r;
-      }, name: 'provider');
+      final provider2 = Provider(
+        name: 'provider',
+        (r) => ref2 = r,
+      );
 
       // initialize refs
       container.read(provider);
@@ -1082,14 +552,18 @@ void main() {
       final container = createContainer();
       final listener = OnResume();
       final listener2 = OnResume();
-      final dep = Provider((ref) {
-        ref.onResume(listener);
-        ref.onResume(listener2);
-      }, name: 'dep');
+      final dep = Provider(
+        name: 'dep',
+        (ref) {
+          ref.onResume(listener);
+          ref.onResume(listener2);
+        },
+      );
       late Ref ref;
-      final provider = Provider((r) {
-        ref = r;
-      }, name: 'provider');
+      final provider = Provider(
+        name: 'provider',
+        (r) => ref = r,
+      );
 
       // initialize ref
       container.read(provider);
@@ -1132,14 +606,18 @@ void main() {
       final container = createContainer();
       final listener = OnResume();
       final listener2 = OnResume();
-      final dep = Provider((ref) {
-        ref.onAddListener(listener);
-        ref.onAddListener(listener2);
-      }, name: 'dep');
+      final dep = Provider(
+        name: 'dep',
+        (ref) {
+          ref.onAddListener(listener);
+          ref.onAddListener(listener2);
+        },
+      );
       late Ref ref;
-      final provider = Provider((r) {
-        ref = r;
-      }, name: 'provider');
+      final provider = Provider(
+        name: 'provider',
+        (r) => ref = r,
+      );
 
       // initialize refs
       container.read(provider);
@@ -1238,29 +716,32 @@ void main() {
   });
 
   group('ref.onCancel', () {
-    test('is called when dependent is invalidated and was the only listener',
-        () async {
-      //
-      final container = createContainer();
-      final onCancel = OnCancelMock();
-      final dep = StateProvider((ref) {
-        ref.onCancel(onCancel);
-        return 0;
-      });
-      final provider = Provider.autoDispose((ref) => ref.watch(dep));
+    test(
+      'is called when dependent is invalidated and was the only listener',
+      skip: 'Waiting for "clear dependencies after futureprovider rebuilds"',
+      () async {
+        //
+        final container = createContainer();
+        final onCancel = OnCancelMock();
+        final dep = StateProvider((ref) {
+          ref.onCancel(onCancel);
+          return 0;
+        });
+        final provider = Provider.autoDispose((ref) => ref.watch(dep));
 
-      container.read(provider);
+        container.read(provider);
 
-      verifyZeroInteractions(onCancel);
+        verifyZeroInteractions(onCancel);
 
-      container.read(dep.notifier).state++;
+        container.read(dep.notifier).state++;
 
-      verify(onCancel()).called(1);
+        verify(onCancel()).called(1);
 
-      await container.pump();
+        await container.pump();
 
-      verifyNoMoreInteractions(onCancel);
-    }, skip: 'Waiting for "clear dependencies after futureprovider rebuilds"');
+        verifyNoMoreInteractions(onCancel);
+      },
+    );
 
     test('is called when all container listeners are removed', () {
       final container = createContainer();
@@ -1368,22 +849,26 @@ void main() {
       verifyZeroInteractions(listener);
     });
 
-    test('is not called when using container.read (autoDispose)', () async {
-      final container = createContainer();
-      final listener = OnCancelMock();
-      final dispose = OnDisposeMock();
-      final provider = StateProvider.autoDispose((ref) {
-        ref.keepAlive();
-        ref.onCancel(listener);
-        ref.onDispose(dispose);
-      });
+    test(
+      'is not called when using container.read (autoDispose)',
+      skip: true,
+      () async {
+        final container = createContainer();
+        final listener = OnCancelMock();
+        final dispose = OnDisposeMock();
+        final provider = StateProvider.autoDispose((ref) {
+          ref.keepAlive();
+          ref.onCancel(listener);
+          ref.onDispose(dispose);
+        });
 
-      container.read(provider);
-      await container.pump();
+        container.read(provider);
+        await container.pump();
 
-      verifyZeroInteractions(listener);
-      verifyZeroInteractions(dispose);
-    }, skip: true);
+        verifyZeroInteractions(listener);
+        verifyZeroInteractions(dispose);
+      },
+    );
 
     test('listeners are cleared on rebuild', () {
       final container = createContainer();

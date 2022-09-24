@@ -81,7 +81,7 @@ class StreamProvider<T> extends _StreamProviderBase<T>
     super.argument,
     super.dependencies,
     super.debugGetCreateSourceHash,
-  }) : super(cacheTime: null, disposeDelay: null);
+  });
 
   /// {@macro riverpod.autoDispose}
   static const autoDispose = AutoDisposeStreamProviderBuilder();
@@ -107,7 +107,7 @@ class StreamProvider<T> extends _StreamProviderBase<T>
 /// The element of [StreamProvider].
 class StreamProviderElement<T> extends ProviderElementBase<AsyncValue<T>>
     implements StreamProviderRef<T> {
-  StreamProviderElement._(_StreamProviderBase<T> provider) : super(provider);
+  StreamProviderElement._(_StreamProviderBase<T> super.provider);
 
   final _futureNotifier = ProxyElementValueNotifier<Future<T>>();
   Completer<T>? _completer;
@@ -125,7 +125,7 @@ class StreamProviderElement<T> extends ProviderElementBase<AsyncValue<T>>
 
   @override
   void create({required bool didChangeDependency}) {
-    asyncTransition(didChangeDependency: didChangeDependency);
+    asyncTransition(shouldClearPreviousState: didChangeDependency);
     _streamNotifier.result ??= Result.data(_streamController.stream);
 
     final streamResult = Result.guard(() {

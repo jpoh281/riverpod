@@ -354,7 +354,8 @@ Future<void> main(List<String> args) async {
 
   Tuple3<List<DisposeType>, List<StateDetails>, List<ProviderType>> matrix;
 
-  final builder = StringBuffer('''
+  final builder = StringBuffer(
+    '''
 // GENERATED CODE - DO NOT MODIFY BY HAND
 //
 // If you need to modify this file, instead update /tools/generate_providers/bin/generate_providers.dart
@@ -365,7 +366,8 @@ Future<void> main(List<String> args) async {
 // You can then use it in your terminal by executing:
 // generate_providers <riverpod/flutter_riverpod/hooks_riverpod> <path to builder file to update>
 
-''');
+''',
+  );
 
   switch (args.first) {
     case 'riverpod':
@@ -488,15 +490,11 @@ class AutoDisposeAsyncNotifierProviderBuilder {
     NotifierT Function() create, {
     String? name,
     List<ProviderOrFamily>? dependencies,
-    int? cacheTime,
-    int? disposeDelay,
   }) {
     return AutoDisposeAsyncNotifierProvider<NotifierT, T>(
       create,
       name: name,
       dependencies: dependencies,
-      cacheTime: cacheTime,
-      disposeDelay: disposeDelay,
     );
   }
 
@@ -517,15 +515,11 @@ class AutoDisposeAsyncNotifierProviderFamilyBuilder {
     NotifierT Function() create, {
     String? name,
     List<ProviderOrFamily>? dependencies,
-    int? cacheTime,
-    int? disposeDelay,
   }) {
     return AutoDisposeAsyncNotifierProviderFamily<NotifierT, T, Arg>(
       create,
       name: name,
       dependencies: dependencies,
-      cacheTime: cacheTime,
-      disposeDelay: disposeDelay,
     );
   }
 }
@@ -596,15 +590,11 @@ class AutoDisposeNotifierProviderBuilder {
     NotifierT Function() create, {
     String? name,
     List<ProviderOrFamily>? dependencies,
-    int? cacheTime,
-    int? disposeDelay,
   }) {
     return AutoDisposeNotifierProvider<NotifierT, State>(
       create,
       name: name,
       dependencies: dependencies,
-      cacheTime: cacheTime,
-      disposeDelay: disposeDelay,
     );
   }
 
@@ -625,15 +615,11 @@ class AutoDisposeNotifierProviderFamilyBuilder {
     NotifierT Function() create, {
     String? name,
     List<ProviderOrFamily>? dependencies,
-    int? cacheTime,
-    int? disposeDelay,
   }) {
     return AutoDisposeNotifierProviderFamily<NotifierT, State, Arg>(
       create,
       name: name,
       dependencies: dependencies,
-      cacheTime: cacheTime,
-      disposeDelay: disposeDelay,
     );
   }
 }
@@ -762,19 +748,11 @@ class FamilyBuilder {
     final createNamedParams = [
       'String? name',
       'List<ProviderOrFamily>? dependencies',
-      if (configs.item1 == DisposeType.autoDispose) ...[
-        'int? cacheTime',
-        'int? disposeDelay',
-      ],
     ].map((e) => '$e,').join();
     final providerParams = [
       'create',
       'name: name',
       'dependencies: dependencies',
-      if (configs.item1 == DisposeType.autoDispose) ...[
-        'cacheTime: cacheTime',
-        'disposeDelay: disposeDelay',
-      ],
     ].map((e) => '$e,').join();
     return '''
 /// Builds a [${configs.providerName}].
@@ -804,19 +782,11 @@ class ProviderBuilder {
     final callNamedParams = [
       'String? name',
       'List<ProviderOrFamily>? dependencies',
-      if (configs.item1 == DisposeType.autoDispose) ...[
-        'int? cacheTime',
-        'int? disposeDelay',
-      ],
     ].map((e) => '$e,').join();
     final providerParams = [
       'create',
       'name: name',
       'dependencies: dependencies',
-      if (configs.item1 == DisposeType.autoDispose) ...[
-        'cacheTime: cacheTime',
-        'disposeDelay: disposeDelay',
-      ],
     ].map((e) => '$e,').join();
 
     return '''

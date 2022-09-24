@@ -2,6 +2,7 @@
 
 **Breaking changes**:
 
+- `FutureProvider.stream` is removed
 - `Family` now has a single generic parameter instead of 3.
 - Using `overrideWithProvider`, it is no-longer possible to override a provider
   with a different type of provider (such as overriding `FutureProvider` with a `StreamProvider`).
@@ -28,6 +29,7 @@ Non-breaking changes:
 - fixed a bug where `AsyncValue.whenData` did not preserve `AsyncValue.isLoading/isRefreshing`
 - fix: `StateProvider` and `StateNotifierProvider` no longer notify their listeners
   on `ref.refresh` if the new result is identical to the old one.
+- fix: potential null exception when using `autoDispose`
 
 # 2.0.0-dev.9
 
