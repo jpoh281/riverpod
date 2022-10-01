@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import 'detail.dart';
@@ -49,14 +48,35 @@ Future<List<Package>> fetchPackages(
   ]);
 }
 
-class SearchPage extends HookConsumerWidget {
+class SearchPage extends ConsumerStatefulWidget {
   const SearchPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final searchController = useTextEditingController();
-    useListenable(searchController);
+  ConsumerState<SearchPage> createState() => _SearchPageState();
+}
 
+class _SearchPageState extends ConsumerState<SearchPage> {
+  final searchController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    searchController.addListener(rebuild);
+  }
+
+  @override
+  dispose() {
+    searchController.removeListener(rebuild);
+    searchController.dispose();
+    super.dispose();
+  }
+
+  rebuild() {
+    setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: const PubAppbar(),
       body: Column(
